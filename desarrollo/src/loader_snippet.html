@@ -1,0 +1,20 @@
+<style id="acc-ld">body>*{visibility:hidden}#acc-load{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#fff;color:#1e5e3b;font:600 16px system-ui,sans-serif;visibility:visible;z-index:2147483646}#acc-load i{width:34px;height:34px;border:4px solid #dfe4dc;border-top-color:#1e5e3b;border-radius:50%;animation:accr 0.9s linear infinite}@keyframes accr{to{transform:rotate(360deg)}}</style>
+<script>
+/* Apostar con criterio · cargador v2
+   1) Si este dispositivo ya tiene la web guardada, la muestra al instante y busca la versión nueva para la próxima visita.
+   2) Si no la tiene, baja la web y los datos en una sola respuesta.
+   3) Solo si el servidor falla, muestra la versión guardada en esta página (v4). */
+(function(){var B="https://script.google.com/macros/s/AKfycbxR2phSdvly1VeKvTZcAjF0HZuPsk2WQze1Pv2H3crIiU23p_shqYWqp5HkhC4IAR8SKg/exec",K="acc_app_v5",done=false;
+function ok(h){return h&&h.length>50000&&h.indexOf("APP_VERSION")>0}
+function get(){try{return localStorage.getItem(K)}catch(e){return null}}
+function put(h){try{localStorage.setItem(K,h)}catch(e){}}
+function show(h){if(done)return;done=true;var go=function(){var l=document.getElementById("acc-load");if(l)l.remove();var f=document.createElement("iframe");f.setAttribute("title","Apostar con criterio");f.style.cssText="position:fixed;inset:0;width:100%;height:100%;border:0;z-index:2147483647;background:#fff;visibility:visible";f.srcdoc='<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Apostar con criterio</title></head><body>'+h+"</body></html>";(document.body||document.documentElement).appendChild(f)};go()}
+function fallback(){if(done)return;done=true;var l=document.getElementById("acc-load");if(l)l.remove();var s=document.getElementById("acc-ld");if(s)s.remove()}
+function fetchT(u,ms){return new Promise(function(res,rej){var t=setTimeout(function(){rej("tiempo")},ms);fetch(u,{credentials:"omit",cache:"no-store"}).then(function(r){if(!r.ok)throw r.status;return r.text()}).then(function(x){clearTimeout(t);res(x)},function(e){clearTimeout(t);rej(e)})})}
+var c=get();
+if(ok(c)){show(c);try{document.write('<plaintext style="display:none">')}catch(e){}fetchT(B+"?api=app",60000).then(function(h){if(ok(h)&&h!==c)put(h)},function(){});return}
+var w=function(){if(done||document.getElementById("acc-load"))return;var d=document.createElement("div");d.id="acc-load";d.setAttribute("role","status");d.innerHTML="<i></i><span>Cargando Apostar con criterio…</span>";(document.body||document.documentElement).appendChild(d)};
+w();
+fetchT(B+"?api=boot",30000).then(function(h){var i=h.indexOf("<\/script>"),app=h.slice(0,8)==="<script>"&&i>0?h.slice(i+9):h;if(ok(app)){put(app);show(h)}else fallback()},fallback);
+})();
+</script>
