@@ -5,7 +5,7 @@
    ======================================================================== */
 const API="/*API*/";
 const VALID=/*VALID*/null;
-const APP_VERSION="5.6";
+const APP_VERSION="5.7";
 const BOOK_NAMES={B365:"Bet365",BFD:"Betfred",BV:"BetVictor",BW:"Bwin",PP:"Paddy Power",SKB:"Sky Bet",PS:"Pinnacle",BFE:"Betfair Exchange",Max:"Mejor cuota (casa no identificada)",PIN:"Pinnacle · actualizada",BFX:"Betfair Exchange · actualizada",B3A:"Bet365 Argentina",Avg:"Promedio de casas"};
 const REAL=["B365","BFD","BV","BW","PP","SKB","PS"];
 
@@ -125,12 +125,31 @@ function stripHTML(){
 function renderStrip(){const[s,t]=stripHTML();$("strip").querySelector(".dot").className="dot "+s;$("stripTxt").innerHTML=t}
 $("strip").onclick=()=>go("#/mas/estado");
 
+/* ---------- bloque "Comparar cuotas": justa, Bet365 y tu casa (se escribe ahí mismo) ---------- */
+const CASAS_TU=["Betano","Codere","BetWarrior","Bplay","Bet365","Otra"];
+function cmpBlock(key,labels,p,b3,b3At){const my=(store.get("acc_cmp",{})[key])||{},casa=my.casa||store.get("acc_casa","Betano");
+ return`<div class="panel"><h4>Comparar cuotas ${ib("valor")}</h4><div class="tw"><table class="cmp"><tr><th></th><th>Justa</th><th>Bet365</th><th>Tu casa</th></tr>${labels.map((x,i)=>{const fair=p?1/p[i]:null,b=b3?b3[i]:null,vb=b&&p?b*p[i]-1:null,desde=p?(1+CFG.vmin/100)/p[i]:null;return`<tr><td style="text-align:left">${esc(x)}</td><td><b>${fair?od(fair):"–"}</b><small>${p?pc(p[i]):""}</small></td><td class="${vb!=null&&vb>CFG.vmin/100?"pos":""}">${b?od(b):"–"}${vb!=null?`<small>${sg(vb)}</small>`:""}</td><td><input data-ci="${i}" inputmode="decimal" placeholder="${desde?"+"+od(desde):"cuota"}" value="${my.o&&my.o[i]?String(my.o[i]).replace(".",","):""}" aria-label="Cuota de tu casa para ${esc(x)}"><span class="vd" id="vd${i}"></span></td></tr>`}).join("")}</table></div>
+ <label class="meta" style="display:flex;gap:8px;align-items:center;margin-top:6px">Tu casa: <select id="cmpCasa" style="padding:6px;border-radius:8px;border:1.5px solid var(--li);background:var(--bg);color:var(--tx);font-size:15px">${CASAS_TU.map(c=>`<option${c===casa?" selected":""}>${c}</option>`).join("")}</select></label>
+ <p class="meta">Escribí la cuota que ves en tu casa y te dice al toque si conviene. El número gris en el casillero es la cuota mínima que conviene. Queda guardado solo en este teléfono.${b3At?` Bet365 Argentina: ${fmtHM(Date.parse(b3At))} h.`:""}</p></div>`}
+function bindCmp(key,p){const ins=[...document.querySelectorAll(".cmp [data-ci]")];if(!ins.length)return;
+ const save=()=>{const all=store.get("acc_cmp",{});all[key]={casa:$("cmpCasa").value,o:ins.map(x=>pnum(x.value)||null),at:Date.now()};store.set("acc_cmp",all);store.set("acc_casa",$("cmpCasa").value)};
+ const show=x=>{const i=+x.dataset.ci,o=pnum(x.value),el=$("vd"+i);if(!(o>1)||!p){el.textContent="";el.className="vd";return}const v=o*p[i]-1;el.textContent=(v>CFG.vmin/100?"✓ conviene ":"✗ no conviene ")+sg(v);el.className="vd "+(v>CFG.vmin/100?"si":"no")};
+ ins.forEach(x=>{show(x);x.oninput=()=>{show(x);save()}});$("cmpCasa").onchange=save}
+/* ---------- cuotas en la lista: Justa · Bet365 · Mejor ---------- */
+let OM=store.get("acc_om","justa");if(!["justa","b365","mejor"].includes(OM))OM="justa";
+function b365Of(m,i){const L=[];if(m.odds.x12.B3A&&m.b3a)L.push(m.odds.x12.B3A[i]);if(m.odds.x12.B365)L.push(m.odds.x12.B365[i]);return L.length?Math.max(...L):null}
+function oddsCells(odds,p){return`<span class="oc">${odds.map((o,i)=>{const v=o&&p?o*p[i]-1:null;return`<span class="${v!=null&&v>CFG.vmin/100&&OM!=="justa"?"vg":""}"><b>${o?od(o):"–"}</b><small>${p?pc(p[i]):""}</small></span>`}).join("")}</span>`}
+function rowOddsF(m){const p=m.fair?m.fair.p:null;let o;if(OM==="justa")o=p?p.map(x=>1/x):[null,null,null];else if(OM==="b365")o=[0,1,2].map(i=>b365Of(m,i));else o=[0,1,2].map(i=>{const L=[];const a=b365Of(m,i);if(a)L.push(a);const b=bestFor(m,i);if(b)L.push(b.odd);if(m.oa&&m.oa.best&&m.oa.best[i])L.push(m.oa.best[i][0]);return L.length?Math.max(...L):null});return oddsCells(o,p)}
+function rowOddsO(e){const p=e.fair?e.fair.p:null;let o;if(OM==="justa")o=p?p.map(x=>1/x):(e.b365||[null,null]);else if(OM==="b365")o=e.b365||[null,null];else o=[0,1].map(i=>{const L=[];if(e.b365)L.push(e.b365[i]);if(e.best&&e.best[i])L.push(e.best[i][0]);return L.length?Math.max(...L):null});return oddsCells(o,p)}
+const dot=fr=>`<i class="fd ${fr==="ok"?"ok":fr==="old"?"old":"exp"}" title="${fr==="ok"?"Cuota reciente":fr==="old"?"Cuota de más de 12 h":"Cuota vieja"}"></i>`;
+let COLL=new Set();
 /* ---------- lista de partidos ---------- */
 let F={chip:"all",q:"",sort:"time",day:"hoy"};
 const CHIPS=[["all","Todos"],["hoy","Hoy"],["man","Mañana"],["sig","Con señal"],["arg","Argentina"],["eur","Europa"],["otr","Resto del mundo"]];
 function renderChips(){$("chips").innerHTML=CHIPS.map(([k,l])=>`<button class="chip${F.chip===k?" on":""}" data-c="${k}" aria-pressed="${F.chip===k}">${l}</button>`).join("")}
 $("chips").onclick=e=>{const b=e.target.closest("[data-c]");if(!b)return;F.chip=b.dataset.c;renderList()};
 $("q").oninput=e=>{F.q=e.target.value.trim().toLowerCase();renderList()};
+if($("q2"))$("q2").oninput=e=>{F.q=e.target.value.trim().toLowerCase();$("q").value=e.target.value;renderList()};
 $("sort").onchange=e=>{F.sort=e.target.value;renderList()};
 $("days").onclick=e=>{const b=e.target.closest("[data-d]");if(!b)return;F.day=b.dataset.d;renderList()};
 $("filtBtn").onclick=()=>{const p=$("filtPanel"),o=p.hidden;p.hidden=!o;$("filtBtn").setAttribute("aria-expanded",String(o))};
@@ -143,10 +162,12 @@ function filtered(rows){const t=dayKey(Date.now());let r=rows;
 function badge(r){if(r.state==="live")return`<span class="badge y">Señal</span>`;if(r.state==="old")return`<span class="badge o">Señal vieja</span>`;if(r.st==="juego")return`<span class="badge n">En juego</span>`;if(r.st==="fin")return`<span class="badge n">Jugado</span>`;return""}
 function mrow(r){const m=r.m,p=m.fair?m.fair.p:null;
  return`<button class="mrow" data-key="${esc(m.key)}"><span class="tm">${fmtHM(r.ts)}<small>${esc(m.country)}</small></span><span class="tt"><b>${esc(m.home)}</b><b>${esc(m.away)}</b><span class="lg">${esc(m.league)}</span>${p?`<span class="mini" aria-label="Local ${pc(p[0])}, empate ${pc(p[1])}, visitante ${pc(p[2])}"><span class="h" style="width:${p[0]*100}%"></span><span class="d" style="width:${p[1]*100}%"></span><span class="a" style="width:${p[2]*100}%"></span></span>`:""}</span><span>${badge(r)}</span></button>`}
-function m1(r){const m=r.m;return`<button class="m1 mrow" data-key="${esc(m.key)}"><span class="t">${fmtHM(r.ts)}</span><span class="n">${esc(m.home)}<i>vs</i>${esc(m.away)}</span><span>${badge(r)}</span></button>`}
+function m1(r){const m=r.m;return`<button class="m1 mrow" data-key="${esc(m.key)}"><span class="t">${fmtHM(r.ts)}${dot(r.fr)}</span><span class="n"><span>${esc(m.home)}</span><span>${esc(m.away)}</span>${r.state!=="none"||r.st!=="prox"?badge(r):""}</span>${rowOddsF(m)}</button>`}
 // Agrupa por liga: Argentina primero, después por horario del primer partido.
 function byLeague(rows){const g=new Map();rows.forEach(r=>{const k=r.m.league;if(!g.has(k))g.set(k,[]);g.get(k).push(r)});
- return[...g.entries()].sort((a,b)=>(b[1][0].m.region==="arg")-(a[1][0].m.region==="arg")||a[1][0].ts-b[1][0].ts).map(([lg,rs])=>`<div class="lgh"><span>${esc(lg)}</span><small>${rs.length}</small></div>`+rs.map(m1).join("")).join("")}
+ return[...g.entries()].sort((a,b)=>(b[1][0].m.region==="arg")-(a[1][0].m.region==="arg")||a[1][0].ts-b[1][0].ts).map(([lg,rs])=>lgHead(lg,rs.length)+(COLL.has(lg)?"":rs.map(m1).join(""))).join("")}
+function lgHead(lg,n){return`<button class="lgh" data-lg="${esc(lg)}" aria-expanded="${!COLL.has(lg)}"><span>${COLL.has(lg)?"▸":"▾"} ${esc(lg)}</span><small>${n}</small></button>`}
+function oddsHead(n){const L=n===3?["1","X","2"]:["1","2"];return`<div class="ohead"><div class="omode" role="group" aria-label="Qué cuota mostrar">${[["justa","Justa"],["b365","Bet365"],["mejor","Mejor"]].map(([k,l])=>`<button data-om="${k}" class="${OM===k?"on":""}" aria-pressed="${OM===k}">${l}</button>`).join("")}</div><span class="oc ol">${L.map(x=>`<span>${x}</span>`).join("")}</span></div>`}
 // La respuesta de arriba: qué mirar hoy, en una frase.
 function answerHTML(){if(!P)return"";const up=ROWS.filter(r=>r.st==="prox"),live=[],old=[];up.forEach(r=>{if(r.state==="live")r.sig.forEach(s=>live.push([r,s]));else if(r.state==="old")r.sig.forEach(s=>old.push([r,s]))});
  const casa=CFG.casas==="ar"?"Bet365 (opera en Argentina)":"casas con nombre";
@@ -163,18 +184,18 @@ function renderList(){
  let count="",list="",past="";
  if(!P){list=LOAD_ERR?"":'<div class="skel"></div>'.repeat(6)}
  else{const act=filtered(ROWS.filter(r=>r.st!=="fin")),pa=filtered(ROWS.filter(r=>r.st==="fin"));
-  const t0=dayKey(Date.now()),inDay=F.day==="hoy"?act.filter(r=>dayKey(r.ts)<=t0):F.day==="man"?act.filter(r=>dayKey(r.ts)===t0+1):act;
+  const t0=dayKey(Date.now()),inDay=F.day==="ahora"?act.filter(r=>r.ts<Date.now()+3*36e5):F.day==="hoy"?act.filter(r=>dayKey(r.ts)<=t0):F.day==="man"?act.filter(r=>dayKey(r.ts)===t0+1):act;
   const nl=inDay.filter(r=>r.state==="live").length;
   count=inDay.length?`${inDay.length} partidos${nl?` · ${nl} con señal`:""}`:"";
-  const filtOn=F.chip!=="all"||F.q||F.sort!=="time";$("filtBtn").classList.toggle("act",!!filtOn);$("filtBtn").textContent=filtOn?"Filtrar ·":"Filtrar";
-  if(!inDay.length)list=`<div class="empty">${filtOn&&act.length?'No hay partidos con ese filtro. <button class="lk" id="clrF">Quitar filtros</button>':F.day==="hoy"&&act.length?'Hoy no quedan partidos. <button class="lk" data-d="man">Ver mañana ›</button>':F.day==="man"&&act.length?'Mañana no hay partidos cargados. <button class="lk" data-d="todo">Ver más días ›</button>':"No hay partidos próximos."}</div>`;
+  const filtOn=F.chip!=="all"||F.sort!=="time";$("filtBtn").classList.toggle("act",!!filtOn);$("filtBtn").textContent=filtOn?"Filtrar ·":"Filtrar";
+  if(!inDay.length)list=`<div class="empty">${filtOn&&act.length?'No hay partidos con ese filtro. <button class="lk" id="clrF">Quitar filtros</button>':F.day==="hoy"&&act.length?F.day==="ahora"?'No hay partidos en las próximas 3 horas. <button class="lk" data-d="hoy">Ver hoy ›</button>':'Hoy no quedan partidos. <button class="lk" data-d="man">Ver mañana ›</button>':F.day==="man"&&act.length?'Mañana no hay partidos cargados. <button class="lk" data-d="todo">Ver más días ›</button>':"No hay partidos próximos."}</div>`;
   else if(F.sort!=="time")list=inDay.map(m1).join("");
   else if(F.day==="todo"){const d=new Map();inDay.forEach(r=>{const k=dayKey(r.ts);if(!d.has(k))d.set(k,[]);d.get(k).push(r)});list=[...d.values()].map(rs=>`<div class="day">${dayLabel(rs[0].ts)}</div>`+byLeague(rs)).join("")}
   else list=byLeague(inDay);
   past=F.day==="todo"&&pa.length?`<details><summary>Ya jugados (${pa.length})</summary><p class="meta">Empezaron hace más de ${CFG.live} h. Sin resultado cargado todavía.</p>${pa.map(m1).join("")}</details>`:""}
  $("answer").innerHTML=answerHTML();document.querySelectorAll("#days [data-d]").forEach(b=>{b.classList.toggle("on",b.dataset.d===F.day);b.setAttribute("aria-pressed",String(b.dataset.d===F.day))});
  const reg=$("region");reg.className=P||LOAD_ERR?"":"loading";
- reg.innerHTML=`<div id="topAlert">${al.join("")}</div><div class="count" id="count">${count}</div><div id="list">${list}</div><div id="pastBox">${past}</div>`;
+ reg.innerHTML=`<div id="topAlert">${al.join("")}</div><div class="count" id="count">${count}</div>${P?oddsHead(3):""}<div id="list">${list}</div><div id="pastBox">${past}</div>`;
  const rb=$("retry");if(rb)rb.onclick=()=>{LOAD_ERR=null;renderList();loadData(true)};
 }
 document.addEventListener("click",e=>{const b=e.target.closest(".mrow[data-key],.ans .it[data-key]");if(b){go("#/p/"+encodeURIComponent(b.dataset.key));return}const d=e.target.closest("#list [data-d]");if(d){F.day=d.dataset.d;renderList();return}if(e.target.closest("#clrF")){F.chip="all";F.q="";F.sort="time";$("q").value="";$("sort").value="time";renderList()}});
@@ -193,8 +214,8 @@ const fairOdd=p=>p>0?1/p:null;
 function sportCount(k){if(k==="futbol")return ROWS.filter(r=>r.st==="prox").length;return OROWS.filter(r=>r.e.sport===k&&r.st==="prox").length}
 function renderSports(){const el=$("sports");if(!el)return;el.innerHTML=SPORTS.filter(([k])=>k!=="mlb"||SPORT==="mlb"||(P&&sportCount("mlb")>0)).map(([k,l])=>{const n=P?sportCount(k):null;return`<button data-sp="${k}" class="${SPORT===k?"on":""}" aria-pressed="${SPORT===k}">${l}${n!=null?`<small>${n}</small>`:""}</button>`}).join("")}
 document.addEventListener("click",e=>{const b=e.target.closest("#sports [data-sp]");if(!b)return;SPORT=b.dataset.sp;store.set("acc_sport",SPORT);F.day=SPORT==="futbol"?"hoy":"todo";renderList()});
-function o1(r){const e=r.e,f=e.fair;return`<button class="m1 mrow orow" data-okey="${esc(e.key)}"><span class="t">${fmtHM(r.ts)}</span><span class="n">${esc(e.home)}<i>vs</i>${esc(e.away)}</span><span>${r.state==="live"?`<span class="badge y">Señal</span>`:f?`<span class="fo" aria-label="Cuota justa">${od(fairOdd(f.p[0]))} · ${od(fairOdd(f.p[1]))}</span>`:e.b365?`<span class="fo b3" aria-label="Cuotas de Bet365 Argentina">${od(e.b365[0])} · ${od(e.b365[1])}<small>Bet365</small></span>`:""}</span></button>`}
-function oByLeague(rows){const g=new Map();rows.forEach(r=>{const k=r.e.league;if(!g.has(k))g.set(k,[]);g.get(k).push(r)});return[...g.entries()].sort((a,b)=>a[1][0].ts-b[1][0].ts).map(([lg,rs])=>`<div class="lgh"><span>${esc(lg)}</span><small>${rs.length}</small></div>`+rs.map(o1).join("")).join("")}
+function o1(r){const e=r.e;return`<button class="m1 mrow orow" data-okey="${esc(e.key)}"><span class="t">${fmtHM(r.ts)}${dot(r.fr)}</span><span class="n"><span>${esc(e.home)}</span><span>${esc(e.away)}</span>${r.state==="live"?`<span class="badge y">Señal</span>`:""}</span>${rowOddsO(e)}</button>`}
+function oByLeague(rows){const g=new Map();rows.forEach(r=>{const k=r.e.league;if(!g.has(k))g.set(k,[]);g.get(k).push(r)});return[...g.entries()].sort((a,b)=>a[1][0].ts-b[1][0].ts).map(([lg,rs])=>lgHead(lg,rs.length)+(COLL.has(lg)?"":rs.map(o1).join(""))).join("")}
 function otherAnswer(rows){const name=(SPORTS.find(x=>x[0]===SPORT)||["",""])[1],up=rows.filter(r=>r.st==="prox"),live=[];up.forEach(r=>r.sig.forEach(s=>live.push([r,s])));
  if(!P||!P.other||!Object.keys(P.other.fetched||{}).some(c=>(c.indexOf("TEN:")===0?"tenis":c.toLowerCase())===SPORT))return`<div class="ans"><h3>${name}: sin cuotas por ahora</h3><p>Las cuotas de ${name} se buscan solas cuando hay partidos en las próximas 36 horas (el plan gratis alcanza para eso).</p></div>`;
  if(live.length){live.sort((a,b)=>b[1].ev-a[1].ev);return`<div class="ans y"><h3>Para mirar: ${live.length} ${live.length===1?"señal":"señales"}</h3><p>${(CFG.casas||"ar")==="ar"?"Cuotas de Bet365 Argentina que pagan más que la cuota justa.":"Casas que pagan más que la cuota justa (Bet365 Argentina y europeas)."} No es una garantía.</p>${live.slice(0,3).map(([r,s])=>`<button class="it" data-okey="${esc(r.e.key)}"><span><b>${esc(OSEL(r.e)[s.sel])}</b><small>${esc(r.e.home)} vs ${esc(r.e.away)} · ${fmtHM(r.ts)} · ${esc(s.bname)}</small></span><span class="v">${od(s.odd)} · ${sg(s.ev)}</span></button>`).join("")}</div>`}
@@ -202,7 +223,7 @@ function otherAnswer(rows){const name=(SPORTS.find(x=>x[0]===SPORT)||["",""])[1]
  return`<div class="ans"><h3>${up.length?`${up.length} ${SPORT==="tenis"?"partidos":"partidos"} con cuota justa`:`${name}: no hay partidos en los próximos días`}</h3><p>${up.length?(ar?(up.some(r=>r.e.b365)?`Bet365 Argentina no paga hoy más que la cuota justa con margen suficiente. Al lado de cada partido va la <b>cuota justa</b> (sin margen): si tu casa paga más, hay valor.`:`Al lado de cada partido va la <b>cuota justa</b> (sin margen) de cada lado. Si tu casa paga más que eso, hay valor. Todavía no llegaron cuotas de Bet365 Argentina para ${name}.`):"Ninguna casa paga hoy más que la cuota justa con margen suficiente."):"Las cuotas se buscan solas varias veces por día."}</p></div>`}
 function renderOther(){
  const all=OROWS.filter(r=>r.e.sport===SPORT),act=all.filter(r=>r.st!=="fin").filter(r=>!F.q||(r.e.home+" "+r.e.away+" "+r.e.league).toLowerCase().includes(F.q));
- const t0=dayKey(Date.now()),inDay=F.day==="hoy"?act.filter(r=>dayKey(r.ts)<=t0):F.day==="man"?act.filter(r=>dayKey(r.ts)===t0+1):act;
+ const t0=dayKey(Date.now()),inDay=F.day==="ahora"?act.filter(r=>r.ts<Date.now()+3*36e5):F.day==="hoy"?act.filter(r=>dayKey(r.ts)<=t0):F.day==="man"?act.filter(r=>dayKey(r.ts)===t0+1):act;
  $("answer").innerHTML=otherAnswer(all);
  document.querySelectorAll("#days [data-d]").forEach(b=>{b.classList.toggle("on",b.dataset.d===F.day);b.setAttribute("aria-pressed",String(b.dataset.d===F.day))});
  $("filtBtn").hidden=true;$("filtPanel").hidden=true;
@@ -212,38 +233,26 @@ function renderOther(){
  else if(F.day==="todo"){const d=new Map();inDay.forEach(r=>{const k=dayKey(r.ts);if(!d.has(k))d.set(k,[]);d.get(k).push(r)});list=[...d.values()].map(rs=>`<div class="day">${dayLabel(rs[0].ts)}</div>`+oByLeague(rs)).join("")}
  else list=oByLeague(inDay);
  const fo=P&&P.other&&P.other.events.length?`<p class="meta">Cuota justa = Pinnacle sin margen (si falta, Betfair o el promedio de casas). Hora: Argentina.</p>`:"";
- $("region").className="";$("region").innerHTML=`<div id="topAlert"></div><div class="count" id="count">${inDay.length?inDay.length+" partidos":""}</div><div id="list">${list}</div>${fo}<div id="pastBox"></div>`}
+ $("region").className="";$("region").innerHTML=`<div id="topAlert"></div><div class="count" id="count">${inDay.length?inDay.length+" partidos":""}</div>${P?oddsHead(2):""}<div id="list">${list}</div>${fo}<div id="pastBox"></div>`}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-okey]");if(b)go("#/o/"+encodeURIComponent(b.dataset.okey))});
+document.addEventListener("click",e=>{const o=e.target.closest("[data-om]");if(o){OM=o.dataset.om;store.set("acc_om",OM);renderList();return}const l=e.target.closest(".lgh[data-lg]");if(l){const k=l.dataset.lg;COLL.has(k)?COLL.delete(k):COLL.add(k);renderList()}});
 function renderOFicha(key){const r=OBYKEY[key],el=$("v-ficha");
  if(!r){el.innerHTML=`<button class="back" onclick="go('#/partidos')">‹ Partidos</button><div class="empty">${P?"Este partido ya no está en los datos.":"Cargando…"}</div>`;return}
  const e=r.e,lab=OSEL(e),f=e.fair,stTxt=r.st==="prox"?`Empieza ${fmtDT(r.ts)}`:r.st==="juego"?"En juego o recién terminado · sin datos en vivo":"Ya jugado";
  let h=`<button class="back" id="fBack">‹ Partidos</button><div class="mhead"><div class="lg">${esc(e.league)}</div><div class="vs">${esc(e.home)}<span>vs</span>${esc(e.away)}</div><div class="mst">${stTxt}</div></div>`;
  r.sig.forEach(s=>{h+=`<div class="panel sig"><h4>Señal ${KE}</h4><p style="margin:0"><b>${esc(lab[s.sel])}</b> a <b>${od(s.odd)}</b> en ${esc(s.bname)} · valor ${sg(s.ev)}.</p><p class="meta">Cuota justa ${od(fairOdd(s.p))}. ${/Argentina/.test(s.bname)?"Revisá en tu Bet365 que la cuota siga igual.":"Es una casa europea: puede no operar en Argentina."} No es una garantía.</p></div>`});
+ h+=cmpBlock(e.key,lab,f?f.p:null,e.b365||null,e.b365At||null);
  if(f)h+=`<div class="panel"><h4>Probabilidad de cada lado ${KE} ${ib("consenso")}</h4>${bars(lab,f.p)}<p class="meta">Mercado sin margen (${esc(f.ref)}). Cuotas ${ago(Date.parse(e.at))} (${fmtDT(Date.parse(e.at))}).${r.fr!=="ok"?" <b>Cuotas viejas: pueden haber cambiado.</b>":""}</p>
- <div class="tw" style="margin-top:8px"><table><tr><th></th><th>Cuota justa</th><th>Conviene si tu casa paga más de ${ib("valor")}</th></tr>${lab.map((x,i)=>`<tr><td>${esc(x)}</td><td>${od(fairOdd(f.p[i]))}</td><td><b>${od((1+CFG.vmin/100)/f.p[i])}</b></td></tr>`).join("")}</table></div><p class="meta">${e.sport==="tenis"?"Si un jugador abandona, cada casa liquida distinto: revisá sus reglas.":e.sport==="nba"?"Ganador del partido incluye el alargue.":e.sport==="mlb"?"Ganador del partido incluye entradas extra.":"Ganador del partido incluye el alargue; si termina empatado, la mayoría de las casas devuelve la apuesta."} Margen quitado con el método ${esc(f.method==="odds_ratio"?"odds ratio":f.method||"potencia")}, el que mejor predijo en datos reales para este tipo de mercado.</p></div>`;
+ <p class="meta">${e.sport==="tenis"?"Si un jugador abandona, cada casa liquida distinto: revisá sus reglas.":e.sport==="nba"?"Ganador del partido incluye el alargue.":e.sport==="mlb"?"Ganador del partido incluye entradas extra.":"Ganador del partido incluye el alargue; si termina empatado, la mayoría de las casas devuelve la apuesta."} Margen quitado con el método ${esc(f.method==="odds_ratio"?"odds ratio":f.method||"potencia")}, el que mejor predijo en datos reales para este tipo de mercado.</p></div>`;
  else h+=`<div class="alert">Todavía no hay cuota de Pinnacle para este partido, así que no se puede calcular la cuota justa. ${e.b365?"Abajo están las cuotas de Bet365 Argentina.":""}</div>`;
  h+=`${e.model?`<div class="panel"><h4>Modelo en prueba ${KX}</h4>${bars(lab,e.model.p,"alt")}<p class="meta">Elo por superficie (${esc(e.model.surface==="Clay"?"polvo de ladrillo":e.model.surface==="Grass"?"césped":"cancha dura")}), entrenado con resultados de Jeff Sackmann hasta ${esc(String(e.model.hasta).replace(/(\d{4})(\d{2})(\d{2})/,"$3/$2/$1"))} y actualizado con cada resultado nuevo. <b>No se usa para señales</b> hasta que demuestre que predice mejor que el mercado.${P&&P.sombra&&P.sombra.tenis&&P.sombra.tenis.n?` Hasta ahora, en ${P.sombra.tenis.n} partidos: modelo ${n1(P.sombra.tenis.llm/P.sombra.tenis.n*1000)/1000} contra mercado ${n1(P.sombra.tenis.llk/P.sombra.tenis.n*1000)/1000} de log loss (menos es mejor).`:""}</p></div>`:""}
- <div class="panel"><h4>Tu casa</h4><p class="meta" style="margin:0">Cargá la cuota que ves y te digo el valor. No se guarda.</p><div class="myodd"><div><label for="oSel">Lado</label><select id="oSel">${lab.map((x,i)=>`<option value="${i}">${esc(x)}</option>`).join("")}</select></div><div><label for="oOdd">Cuota</label><input id="oOdd" inputmode="decimal" placeholder="1,90"></div><button class="btn sm" id="oCalc">Calcular</button></div><div id="oOut" class="meta"></div></div>`;
+`;
  const bk=Object.entries(e.books||{}).sort((a,b)=>b[1][0]-a[1][0]);
  h+=`<div class="panel"><h4>Cuotas</h4><div class="tw"><table><tr><th>Casa</th><th>${esc(e.sport==="tenis"?e.home.split(" ").slice(-1)[0]:"Local")}</th><th>${esc(e.sport==="tenis"?e.away.split(" ").slice(-1)[0]:"Visitante")}</th></tr>${e.b365?`<tr><td><b>Bet365 Argentina</b><small>${fmtHM(Date.parse(e.b365At))} h · OddsPapi</small></td><td>${od(e.b365[0])}</td><td>${od(e.b365[1])}</td></tr>`:""}${e.btn?`<tr><td>${esc(e.btnLabel||"Betano")}<small>referencia · puede variar en Argentina</small></td><td>${od(e.btn[0])}</td><td>${od(e.btn[1])}</td></tr>`:""}${e.pin?`<tr><td>Pinnacle (referencia)</td><td>${od(e.pin[0])}</td><td>${od(e.pin[1])}</td></tr>`:""}${bk.map(([n,o])=>`<tr><td>${esc(n)}</td><td>${od(o[0])}</td><td>${od(o[1])}</td></tr>`).join("")}</table></div><p class="meta">Bet365 Argentina: OddsPapi. Pinnacle y las demás: The Odds API, región Europa (pueden no operar en Argentina).</p></div>`;
  h+=`<div class="note">${e.sport==="nfl"?"En la NFL la página usa solo el mercado: se probó un modelo propio (Elo) con los partidos desde 2019 y predijo peor que las cuotas de cierre, así que no se muestra.":`En ${e.sport==="tenis"?"tenis":e.sport==="mlb"?"béisbol":"la NBA"} la página usa solo el mercado: todavía no hay un modelo propio probado con datos reales, y no se muestra uno sin probar.`}</div>`;
- h+=groupPanel(e.key,lab);
- el.innerHTML=h;$("fBack").onclick=()=>go("#/partidos");bindGroup(e.key,lab,f?f.p:null,e.sport);
- $("oCalc").onclick=()=>{const i=+$("oSel").value,o=pnum($("oOdd").value);if(!(o>1)||!f){$("oOut").textContent="Escribí una cuota mayor a 1.";return}const v=o*f.p[i]-1;$("oOut").innerHTML=`Valor ${sg(v)}: ${v>CFG.vmin/100?"<b>paga más que lo justo</b>":"no alcanza el umbral"} (cuota justa ${od(fairOdd(f.p[i]))}).`}}
+ el.innerHTML=h;$("fBack").onclick=()=>go("#/partidos");bindCmp(e.key,f?f.p:null);
+}
 
-/* ---------- cuotas compartidas por el grupo (Betano, Codere, BetWarrior…) ---------- */
-const CASAS_GRUPO=["Betano","Codere","BetWarrior","Bplay","Jugadón","Casino Club","Bet365","Otra"];
-let USR=null,USR_AT=0;
-async function loadUsuarios(force){if(!force&&USR&&Date.now()-USR_AT<60000)return USR;try{USR=await fetchJSON(API+"?api=usuarios",15000);USR_AT=Date.now()}catch(e){USR=USR||{}}return USR}
-function groupPanel(key,labels){const g=store.get("acc_grupo",{});return`<div class="panel" id="grpBox"><h4>Cuotas del grupo</h4><p class="meta" style="margin:0">Casas que no publican sus cuotas (Betano, Codere, BetWarrior…): si alguien del grupo carga la que ve, la ven todos, con hora y nombre. No se verifican y no generan señales.</p><div id="grpList" class="meta">Cargando…</div>
- <div class="gform"><label>Casa<select id="gCasa">${CASAS_GRUPO.map(c=>`<option>${c}</option>`).join("")}</select></label><label>Resultado<select id="gSel">${labels.map((x,i)=>`<option value="${i}">${esc(x)}</option>`).join("")}</select></label><label>Cuota<input id="gOdd" inputmode="decimal" placeholder="2,10"></label><label>Tu nombre<input id="gNom" value="${esc(g.n||"")}" placeholder="Cata"></label><label class="w2">Código del grupo<input id="gCod" value="${esc(g.k||"")}" placeholder="Pedíselo a quien armó el grupo"></label><button class="btn w2" id="gAdd">Compartir con el grupo</button></div><div id="gMsg" class="meta"></div></div>`}
-async function bindGroup(key,labels,fairP,sport,refFor){const el=$("grpList");if(!el)return;
- const draw=U=>{const L=(U[key]||[]).slice().reverse();el.innerHTML=L.length?`<div class="tw"><table><tr><th>Casa</th><th>Resultado</th><th>Cuota</th><th>Valor</th></tr>${L.slice(0,12).map(x=>{const v=fairP?x.o*fairP[x.sel]-1:null;return`<tr><td style="text-align:left">${esc(x.b)}<small>${esc(x.n||"alguien")} · ${fmtHM(Date.parse(x.at))}</small></td><td>${esc(labels[x.sel]||"")}</td><td>${od(x.o)}</td><td class="${v>0?"pos":"neg"}">${v==null?"–":sg(v)}</td></tr>`}).join("")}</table></div>`:"Todavía nadie cargó cuotas de este partido."};
- draw(await loadUsuarios());
- $("gAdd").onclick=async()=>{const o=pnum($("gOdd").value),k=$("gCod").value.trim(),n=$("gNom").value.trim();if(!(o>1.01)){$("gMsg").textContent="Poné una cuota válida, por ejemplo 2,10.";return}if(!k){$("gMsg").textContent="Falta el código del grupo.";return}
-  store.set("acc_grupo",{k,n});$("gMsg").textContent="Enviando…";
-  try{const r=await fetchJSON(API+"?api=cargar&k="+encodeURIComponent(k)+"&m="+encodeURIComponent(key)+"&s="+encodeURIComponent(sport)+"&b="+encodeURIComponent($("gCasa").value)+"&sel="+$("gSel").value+"&o="+encodeURIComponent(String(o))+"&n="+encodeURIComponent(n),15000);
-   if(r.ok){$("gMsg").textContent="Listo: ya la ve todo el grupo.";$("gOdd").value="";draw(await loadUsuarios(true))}else $("gMsg").textContent=r.error||"No se pudo guardar."}catch(e){$("gMsg").textContent=String(e.message||e)}}}
 /* ---------- goleadores: "anota en cualquier momento" ---------- */
 function goalFresh(m){return m.gs&&freshOf(Date.parse(m.gs.at))==="ok"&&(!m.gs.b3aAt||freshOf(Date.parse(m.gs.b3aAt))==="ok")}
 function goalSigs(m){if(!m.gs||!goalFresh(m)||mstatus(Date.parse(m.kickoff))!=="prox")return[];return m.gs.signals.filter(g=>g.ev>(g.m==="aproximada"?Math.max(5,CFG.vmin):CFG.vmin)/100)}
@@ -310,20 +319,18 @@ function renderFicha(key,tab){
  $("fBack").onclick=()=>go("#/partidos");
  el.querySelectorAll("[data-ft]").forEach(b=>b.onclick=()=>{location.hash="#/p/"+encodeURIComponent(key)+"/"+b.dataset.ft});
  if(tab==="equipos")loadForm(r);
- if(tab==="resumen"){bindMyOdds(r);bindGroup(m.key,SEL(m),m.fair?m.fair.p:null,"futbol")}
+ if(tab==="resumen")bindCmp(m.key,m.fair?m.fair.p:null);
 }
 function fichaResumen(r){const m=r.m,lab=SEL(m);let h="";
  r.sig.forEach(s=>{if(r.state!=="none")h+=sigCard(r,s)});
  if(!r.sig.length||r.state==="none"){h+=`<div class="alert ${r.sig.length?"":"ok"}">${r.st!=="prox"?"El partido ya empezó: no hay apuestas previas posibles.":r.sig.length?"Había una señal, pero la cuota está vencida.":"No se encontró una oportunidad suficientemente respaldada en este partido."}</div>`}
- if(m.fair)h+=`<div class="panel"><h4>Probabilidad de cada resultado ${KE} ${ib("consenso")}</h4>${bars(["Local · "+m.home,"Empate","Visitante · "+m.away],m.fair.p)}<p class="meta">Mercado sin margen (${esc(m.fair.ref)}). Cuotas de ${fmtDT(fairAtOf(m))}.</p><div class="kv" style="margin-top:8px"><div><b>Conviene si tu casa paga más de</b> ${ib("valor")}</div><div></div>${lab.map((x,i)=>`<div>${esc(x)}</div><div><b>${od((1+CFG.vmin/100)/m.fair.p[i])}</b></div>`).join("")}</div><p class="meta">Con una cuota mayor a esa, el valor supera el ${CFG.vmin}% que se usa como umbral. Sirve para comparar con Betano, Codere, Bet365 o la casa que uses; cargá tu cuota abajo para ver el valor exacto.</p></div>`;
+ h+=cmpBlock(m.key,lab,m.fair?m.fair.p:null,[0,1,2].some(i=>b365Of(m,i))?[0,1,2].map(i=>b365Of(m,i)):null,m.b3a?m.b3a.at:null);
+ if(m.fair)h+=`<div class="panel"><h4>Probabilidad de cada resultado ${KE} ${ib("consenso")}</h4>${bars(["Local · "+m.home,"Empate","Visitante · "+m.away],m.fair.p)}<p class="meta">Mercado sin margen (${esc(m.fair.ref)}). Cuotas de ${fmtDT(fairAtOf(m))}.</p></div>`;
  const L=lambdas(m);
  if(L)h+=`<div class="panel"><h4>Goles ${KE} ${ib("golesesp")}</h4><div class="kv"><div>Goles esperados</div><div>${n1(L.lam)}</div><div>${esc(m.home)}</div><div>${n1(L.lh)}</div><div>${esc(m.away)}</div><div>${n1(L.la)}</div><div>Más de 2,5 goles (mercado)</div><div>${pc(L.po)}</div></div></div>`;
  else h+=`<div class="panel"><h4>Goles</h4><p class="meta">Datos insuficientes: la fuente no publica cuotas de goles para este partido.</p></div>`;
- h+=`<div class="panel"><h4>Tu casa ${ib("mejor")}</h4><p class="meta" style="margin:0">Betano, BetWarrior, Casino Club y otras casas argentinas no publican sus cuotas de forma abierta. Cargá la que ves en tu casa y te digo si paga lo justo. Se guarda solo en este dispositivo.</p>
- <div class="myodd"><div><label for="moSel">Resultado</label><select id="moSel">${lab.map((x,i)=>`<option value="${i}">${esc(x)}</option>`).join("")}</select></div><div><label for="moOdd">Cuota</label><input id="moOdd" inputmode="decimal" placeholder="2,10"></div><button class="btn sm" id="moAdd">Calcular</button></div>
- <input id="moBook" placeholder="Casa (opcional, ej. Betano)" style="width:100%;margin-top:8px;padding:9px 10px;border:1.5px solid var(--li);border-radius:9px;background:var(--bg);font-size:16px"><div id="moOut"></div></div>`;
+
  if(m.odds.x12.BTN&&m.btn)h+=`<div class="panel"><h4>${esc(m.btn.label)} · referencia</h4><div class="kv">${lab.map((x,i)=>`<div>${esc(x)}</div><div>${od(m.odds.x12.BTN[i])}${m.fair?` <small>${sg(m.odds.x12.BTN[i]*m.fair.p[i]-1)}</small>`:""}</div>`).join("")}</div><p class="meta">Es la cuota de Betano en otro país (${fmtDT(Date.parse(m.btn.at))}, OddsPapi). La de Betano Argentina suele parecerse, pero puede variar: confirmala en tu app. No genera señales.</p></div>`;
- h+=groupPanel(m.key,lab);
  return h}
 function bindMyOdds(r){const m=r.m,b=$("moAdd");if(!b)return;const show=()=>{const L=(store.get("acc_myodds",{})[m.key]||[]);$("moOut").innerHTML=L.length?`<table style="margin-top:8px"><tr><th>Cargada</th><th>Resultado</th><th>Cuota</th><th>Valor</th></tr>${L.map(x=>`<tr><td>${esc(x.book||"Tu casa")} · ${fmtHM(x.at)}</td><td>${esc(SEL(m)[x.sel])}</td><td>${od(x.odd)}</td><td class="${x.odd*m.fair.p[x.sel]-1>0?"pos":"neg"}">${m.fair?sg(x.odd*m.fair.p[x.sel]-1):"–"}</td></tr>`).join("")}</table><p class="meta">Cuota cargada a mano por vos: la página no la verifica. Valor contra la probabilidad sin margen del mercado.</p>`:""};show();
  b.onclick=()=>{const o=pnum($("moOdd").value),sel=+$("moSel").value;if(!(o>1)||!m.fair){$("moOut").innerHTML=`<p class="meta">Poné una cuota válida, por ejemplo 2,10.</p>`;return}const all=store.get("acc_myodds",{});(all[m.key]=all[m.key]||[]).unshift({sel,odd:o,book:$("moBook").value.trim(),at:Date.now()});all[m.key]=all[m.key].slice(0,10);store.set("acc_myodds",all);$("moOdd").value="";show()}}

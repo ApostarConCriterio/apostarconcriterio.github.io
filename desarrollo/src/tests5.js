@@ -80,13 +80,13 @@ const T0 = '2026-10-24T23:30:00Z';
   ok('carga los datos desde la API', s1.src === 'api' && s1.n === 150, `${s1.n} partidos`);
   ok('recién capturado: cuotas recientes y señales activas', s1.strip.includes('Cuotas recientes') && s1.live > 0, `${s1.live} con señal`);
   await p.evaluate(() => go('#/partidos')); await p.waitForTimeout(100);
-  { const v = await p.evaluate(() => ({ ans: document.getElementById('answer').innerText, rows: document.querySelectorAll('#list .mrow').length, lgh: [...document.querySelectorAll('#list .lgh span')].map(x => x.innerText), panel: document.getElementById('filtPanel').hidden, nav: document.querySelectorAll('nav.bottom button').length, t0: dayKey(Date.now()), allToday: [...document.querySelectorAll('#list .mrow')].every(el => dayKey(BYKEY[el.dataset.key].ts) <= dayKey(Date.now())) }));
+  { const v = await p.evaluate(() => ({ ans: document.getElementById('answer').innerText, rows: document.querySelectorAll('#list .mrow').length, lgh: [...document.querySelectorAll('#list .lgh span')].map(x => x.innerText.replace(/^[▾▸]\s*/, '')), panel: document.getElementById('filtPanel').hidden, nav: document.querySelectorAll('nav.bottom button').length, t0: dayKey(Date.now()), allToday: [...document.querySelectorAll('#list .mrow')].every(el => dayKey(BYKEY[el.dataset.key].ts) <= dayKey(Date.now())) }));
     ok('pantalla simple: arriba una respuesta, menú de 3 botones y filtros escondidos', v.ans.length > 10 && v.nav === 3 && v.panel, v.ans.split('\n')[0]);
     ok('"Hoy" muestra solo partidos de hoy, agrupados por liga', v.allToday && v.lgh.length >= 1 && v.rows >= 1, `${v.rows} filas en ${v.lgh.length} ligas`); }
   await p.click('#days [data-d=todo]');
   { const v = await p.evaluate(() => ({ rows: document.querySelectorAll('#list .mrow').length, days: document.querySelectorAll('#list .day').length, fin: ROWS.filter(r => r.st === 'fin').length, finInList: [...document.querySelectorAll('#list > .mrow, #list > .lgh ~ .mrow')].some(el => BYKEY[el.dataset.key].st === 'fin') }));
     ok('"Más días": agrupada por día y liga, sin partidos terminados', v.rows > 0 && v.days >= 1 && !v.finInList, `${v.rows} filas, ${v.fin} jugados aparte`); }
-  { const v = await p.evaluate(() => { const ar = [...document.querySelectorAll('#list .lgh span')].map(x => x.innerText); const i = ar.findIndex(x => /^Argentina/.test(x)); return { ar, i, firstDayArg: (() => { const d = document.querySelector('#list .day'); let n = d.nextElementSibling; return n && /Argentina/.test(n.innerText) || !ROWS.some(r => r.m.region === 'arg' && r.st === 'prox'); })() }; }); ok('Argentina aparece primero dentro de cada día', v.firstDayArg || v.i <= 0, v.ar.slice(0, 3).join(' | ')); }
+  { const v = await p.evaluate(() => { const ar = [...document.querySelectorAll('#list .lgh span')].map(x => x.innerText.replace(/^[▾▸]\s*/, '')); const i = ar.findIndex(x => /^Argentina/.test(x)); return { ar, i, firstDayArg: (() => { const d = document.querySelector('#list .day'); let n = d.nextElementSibling; return n && /Argentina/.test(n.innerText) || !ROWS.some(r => r.m.region === 'arg' && r.st === 'prox'); })() }; }); ok('Argentina aparece primero dentro de cada día', v.firstDayArg || v.i <= 0, v.ar.slice(0, 3).join(' | ')); }
   await p.click('#filtBtn');
   { const sums = await p.evaluate(() => ROWS.filter(r => r.m.fair).map(r => r.m.fair.p.reduce((a, b) => a + b, 0))); ok('1X2 suma 100% en todos', sums.every(s => near(s, 1, 1e-4)), sums.length + ''); }
   { const v = await p.evaluate(() => ROWS.every(r => r.sig.every(s => s.ev > .02 && s.ev <= .25 && s.odd <= 8 && s.odd === r.m.odds.x12[s.book][s.sel]))); ok('toda señal cumple 2–25%, cuota ≤ 8 y la cuota existe en esa casa', v); }
@@ -101,8 +101,8 @@ const T0 = '2026-10-24T23:30:00Z';
     ok('ficha: se abre con 5 pestañas', v.vis && v.tabs === 5);
     ok('señal completa: casa, cuota, captura, método, margen, justa, valor, mínima', ['Casa', 'Cuota', 'Cuota publicada', 'Probabilidad estimada', 'Método', 'Margen de esa casa', 'Cuota justa', 'Valor esperado', 'Conviene si'].every(x => v.kv.includes(x)));
     ok('señal explica por qué puede ser débil', v.warn >= 1, v.warn + ' motivos'); }
-  await p.fill('#moOdd', '9,99'); await p.click('#moAdd');
-  { const v = await p.evaluate(k => ({ t: document.getElementById('moOut').innerText, s: JSON.parse(localStorage.getItem('acc_myodds'))[k] }), key); ok('cuota de mi casa: se calcula y se guarda en el dispositivo', v.t.includes('9,99') && v.s && v.s[0].odd === 9.99); }
+  await p.fill('.cmp [data-ci="0"]', '9,99'); await p.waitForTimeout(50);
+  { const v = await p.evaluate(k => ({ t: document.getElementById('vd0').innerText, s: JSON.parse(localStorage.getItem('acc_cmp'))[k] }), key); ok('Comparar: escribís la cuota de tu casa, dice al toque si conviene y queda guardada en el teléfono', /conviene/.test(v.t) && v.s && v.s.o[0] === 9.99, v.t); }
   await p.click('[data-ft=mercados]'); await p.waitForTimeout(100);
   { const t = await p.evaluate(() => document.getElementById('v-ficha').innerText); ok('mercados: 1X2, doble oportunidad, goles, hándicap, ambos marcan, exacto', ['Resultado (1X2)', 'Doble oportunidad', 'Empate no apuesta', 'Más/menos 2,5', 'Hándicap asiático', 'Ambos marcan', 'Resultado exacto'].every(x => t.includes(x)));
     ok('mercados sin datos se marcan "no disponible", sin inventar', ['Córners', 'Tarjetas', 'Jugadores'].every(x => t.includes(x)) && t.includes('No se estiman valores')); }
@@ -228,7 +228,7 @@ const T0 = '2026-10-24T23:30:00Z';
     ok('por defecto las señales usan solo casas que operan en Argentina (Bet365)', v.books.every(x => x === 'B365'), v.books.join(','));
     const k = await q.evaluate(() => ROWS.find(r => r.m.oa && r.m.fair).m.key);
     await q.evaluate(k => go('#/p/' + encodeURIComponent(k)), k); await q.waitForTimeout(250);
-    ok('la ficha dice desde qué cuota conviene en tu casa', await q.evaluate(() => /Conviene si tu casa paga más de/.test(document.getElementById('v-ficha').innerText)));
+    ok('la ficha dice desde qué cuota conviene en tu casa', await q.evaluate(() => /Comparar cuotas/.test(document.getElementById('v-ficha').innerText) && !!document.querySelector('.cmp [data-ci]').placeholder));
     await q.evaluate(k => go('#/p/' + encodeURIComponent(k) + '/cuotas'), k); await q.waitForTimeout(250);
     await q.evaluate(k => go('#/p/' + encodeURIComponent(ROWS.find(r => r.m.model && r.m.model.cc && r.m.model.cc.corners).m.key) + '/mercados'), k); await q.waitForTimeout(250);
     ok('Mercados muestra córners y amarillas del modelo, con su aclaración', await q.evaluate(() => { const t = document.getElementById('v-ficha').innerText; return /Córners totales · esperados/.test(t) && /Tarjetas amarillas totales/.test(t) && /Modelo propio de córners/.test(t); }));
@@ -256,13 +256,13 @@ const T0 = '2026-10-24T23:30:00Z';
     ok('arriba hay un selector Fútbol · Tenis · NBA · NFL con cantidad de partidos', sp.length === 4 && /Fútbol/.test(sp[0]) && /Tenis 1/.test(sp[1]) && /NBA 3/.test(sp[2]) && /NFL 1/.test(sp[3]), sp.join(' | '));
     await q.click('#sports [data-sp="nba"]'); await q.waitForTimeout(150);
     const v = await q.evaluate(() => ({ rows: [...document.querySelectorAll('#list .orow')].map(x => x.innerText.replace(/\s+/g, ' ')), ans: document.getElementById('answer').innerText, filt: document.getElementById('filtBtn').hidden }));
-    ok('NBA lista sus partidos: cuota justa, o la de Bet365 Argentina si falta Pinnacle', v.rows.length === 3 && v.rows.some(r => /Nuggets.*1,22 · 5,47/.test(r)) && v.rows.some(r => /Heat.*1,90 · 1,90\s*Bet365/.test(r)) && v.rows.some(r => /Celtics.*Señal/.test(r)), v.rows.join(' | '));
+    ok('NBA lista sus partidos: cuota justa, o la de Bet365 Argentina si falta Pinnacle', v.rows.length === 3 && v.rows.some(r => /Nuggets.*1,22.*5,47/.test(r)) && v.rows.some(r => /Heat.*1,90.*1,90/.test(r)) && v.rows.some(r => /Celtics.*Señal/.test(r)), v.rows.join(' | '));
     ok('con Bet365 (por defecto) la señal de NBA es de Bet365 Argentina', /Para mirar: 1 señal/.test(v.ans) && /Bet365 Argentina/.test(v.ans) && !/Europa/.test(v.ans), v.ans.slice(0, 160));
     await q.click('#list .orow'); await q.waitForTimeout(200);
     const f = await q.evaluate(() => ({ h: location.hash, t: document.getElementById('v-ficha').innerText }));
-    ok('la ficha de NBA muestra probabilidad, cuota justa, desde cuánto conviene y la tabla de casas', /^#\/o\//.test(f.h) && /Probabilidad de cada lado/.test(f.t) && /Conviene si tu casa paga más de/.test(f.t) && /Pinnacle \(referencia\)/.test(f.t) && /Unibet/.test(f.t) && /Bet365 Argentina/.test(f.t), f.h);
-    await q.fill('#oOdd', '1,80'); await q.click('#oCalc'); await q.waitForTimeout(50);
-    ok('en la ficha se puede cargar la cuota de tu casa y da el valor', /Valor [+−]\d/.test(await q.evaluate(() => document.getElementById('oOut').innerText)));
+    ok('la ficha de NBA muestra probabilidad, cuota justa, desde cuánto conviene y la tabla de casas', /^#\/o\//.test(f.h) && /Probabilidad de cada lado/.test(f.t) && /Comparar cuotas/.test(f.t) && /Pinnacle \(referencia\)/.test(f.t) && /Unibet/.test(f.t) && /Bet365 Argentina/.test(f.t), f.h);
+    await q.fill('.cmp [data-ci="0"]', '1,80'); await q.waitForTimeout(50);
+    ok('en la ficha se escribe la cuota de tu casa y da el valor', /conviene [+−]\d/.test(await q.evaluate(() => document.getElementById('vd0').innerText)));
     await q.evaluate(() => { CFG.casas = 'id'; saveCFG(); derive(); go('#/partidos'); }); await q.waitForTimeout(200);
     const v2 = await q.evaluate(() => ({ sport: SPORT, ans: document.getElementById('answer').innerText }));
     ok('el deporte elegido se mantiene y con todas las casas se elige la mejor cuota (Bet365 Argentina 1,70 > Unibet 1,64)', v2.sport === 'nba' && /Para mirar: 1 señal/.test(v2.ans) && /1,70/.test(v2.ans), v2.ans.slice(0, 160));
@@ -301,14 +301,28 @@ const T0 = '2026-10-24T23:30:00Z';
     await q.evaluate(k => go('#/p/' + encodeURIComponent(k)), kb); await q.waitForTimeout(400);
     const t = await q.evaluate(() => document.getElementById('v-ficha').innerText);
     ok('la ficha muestra Betano de otro país como referencia (puede variar en Argentina)', !!kb && /Betano .* · referencia/.test(t) && /puede variar/.test(t));
-    ok('la ficha tiene "Cuotas del grupo" con lo que cargaron otros', /Cuotas del grupo/.test(t));
-    await q.fill('#gOdd', '2,25'); await q.fill('#gCod', 'grupo123'); await q.fill('#gNom', 'Cata'); await q.click('#gAdd'); await q.waitForTimeout(300);
-    ok('se puede compartir una cuota con el código del grupo y queda recordado', /ya la ve todo el grupo/.test(await q.evaluate(() => document.getElementById('gMsg').innerText)) && await q.evaluate(() => JSON.parse(localStorage.getItem('acc_grupo')).k === 'grupo123') && q.calls.includes('cargar'));
+    ok('ya no aparece "compartir con el grupo"', !/grupo/i.test(t));
     await q.evaluate(() => { SPORT = 'tenis'; go('#/partidos'); }); await q.waitForTimeout(200);
     const tk = await q.evaluate(() => OROWS.find(r => r.e.model).e.key);
     await q.evaluate(k => go('#/o/' + encodeURIComponent(k)), tk); await q.waitForTimeout(300);
     const tt = await q.evaluate(() => document.getElementById('v-ficha').innerText);
     ok('tenis: la ficha muestra el modelo en prueba y aclara que no da señales', /Modelo en prueba/.test(tt) && /No se usa para señales/.test(tt) && /Sackmann/.test(tt));
+    await q.close(); }
+
+  // ---------- 11. Lista: cuotas a la vista, Justa/Bet365/Mejor, Ahora, ligas plegables, buscador ----------
+  { const q = await page(b, T0, { data: 'data_oa' });
+    await q.click('#days [data-d=todo]'); await q.waitForTimeout(150);
+    const r0 = await q.evaluate(() => ({ cells: document.querySelectorAll('#list .m1 .oc > span').length, dots: document.querySelectorAll('#list .m1 .fd').length, head: !!document.querySelector('.ohead .omode') }));
+    ok('cada partido de fútbol muestra sus 3 cuotas y el punto de frescura', r0.cells > 30 && r0.dots > 10 && r0.head, JSON.stringify(r0));
+    await q.click('.omode [data-om=b365]'); await q.waitForTimeout(100);
+    ok('se puede cambiar a cuotas de Bet365 y queda recordado; con valor se pinta en verde', await q.evaluate(() => localStorage.getItem('acc_om') === '"b365"' && document.querySelectorAll('#list .oc .vg').length >= 1));
+    await q.click('#days [data-d=ahora]'); await q.waitForTimeout(100);
+    ok('"Ahora" muestra solo lo que empieza en las próximas 3 horas', await q.evaluate(() => [...document.querySelectorAll('#list .mrow')].every(el => BYKEY[el.dataset.key].ts < Date.now() + 3 * 36e5)));
+    await q.click('#days [data-d=todo]'); await q.waitForTimeout(100);
+    const n1 = await q.evaluate(() => document.querySelectorAll('#list .mrow').length); await q.click('#list .lgh'); await q.waitForTimeout(100);
+    ok('las ligas se pliegan con un toque', await q.evaluate(() => document.querySelectorAll('#list .mrow').length) < n1);
+    const team = await q.evaluate(() => ROWS.find(r => r.st === 'prox').m.away); await q.fill('#q2', team.toLowerCase()); await q.waitForTimeout(100);
+    ok('buscador visible arriba, sin abrir filtros', await q.evaluate(t => [...document.querySelectorAll('#list .mrow')].length >= 1 && [...document.querySelectorAll('#list .mrow')].every(el => el.innerText.toLowerCase().includes(t.toLowerCase())), team));
     await q.close(); }
 
   // ---------- 6. Seguridad y errores ----------

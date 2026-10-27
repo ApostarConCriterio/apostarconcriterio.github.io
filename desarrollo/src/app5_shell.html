@@ -217,6 +217,24 @@ details{margin:10px 0}summary{cursor:pointer;font-weight:700;color:var(--g)}
 .gform label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--mu);min-width:0}
 .gform select,.gform input{width:100%;min-width:0;padding:9px 10px;border:1.5px solid var(--li);border-radius:9px;background:var(--bg);color:var(--tx);font-size:16px}
 .gform .w2{grid-column:1/-1}
+.m1{grid-template-columns:44px 1fr auto!important}
+.m1 .t{display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.m1 .n{display:flex;flex-direction:column;white-space:normal!important;line-height:1.25}.m1 .n>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.m1 .n .badge{align-self:flex-start;margin-top:3px}
+.oc{display:grid;grid-auto-flow:column;grid-auto-columns:44px;gap:4px;text-align:center;font-variant-numeric:tabular-nums}
+.oc>span{display:flex;flex-direction:column;border-radius:8px;padding:3px 0;background:var(--pa)}
+.oc b{font-size:14px}.oc small{font-size:10.5px;color:var(--mu)}
+.oc .vg{background:#dff3e4;outline:1.5px solid #2e9a57}.oc .vg b{color:#1d7a40}
+.ohead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 0 2px}
+.oc.ol>span{background:none;padding:0;font-size:12px;font-weight:700;color:var(--mu)}
+.omode{display:flex;background:var(--pa);border-radius:999px;padding:2px}
+.omode button{border:0;background:none;border-radius:999px;padding:5px 10px;font-size:13px;font-weight:700;color:var(--mu);cursor:pointer}
+.omode button.on{background:var(--bg);color:var(--tx);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.fd{display:inline-block;width:8px;height:8px;border-radius:50%;background:#aaa}.fd.ok{background:#2e9a57}.fd.old{background:#e0a800}
+button.lgh{width:100%;border:0;background:none;padding:6px 0;cursor:pointer;text-align:left}
+.mhead{position:sticky;top:0;z-index:5}
+.cmp td input{width:100%;min-width:0;padding:7px 6px;border:1.5px solid var(--li);border-radius:8px;font-size:16px;background:var(--bg);color:var(--tx);text-align:center}
+.cmp small{display:block;font-size:11px;color:var(--mu)}
+.cmp .vd{display:block;font-size:11.5px;font-weight:700}.cmp .vd.si{color:#1d7a40}.cmp .vd.no{color:#b3261e}
 .sports{display:flex;gap:6px;margin:2px 0 10px;overflow-x:auto;scrollbar-width:none}
 .sports::-webkit-scrollbar{display:none}
 .sports button{flex:1 0 auto;border:1.5px solid var(--li);background:var(--bg);color:var(--tx);border-radius:12px;padding:8px 12px;font-weight:700;font-size:14.5px;cursor:pointer;display:flex;gap:6px;align-items:center;justify-content:center}
@@ -258,7 +276,8 @@ footer b{color:var(--tx)}
   <button class="strip" id="strip" aria-label="Estado de los datos"><span class="dot load"></span><span id="stripTxt">Cargando datos…</span><span class="arr">›</span></button>
   <div class="sports" id="sports" role="group" aria-label="Deporte"></div>
   <div id="answer"></div>
-  <div class="dbar"><div class="days" id="days" role="group" aria-label="Días"><button data-d="hoy" class="on">Hoy</button><button data-d="man">Mañana</button><button data-d="todo">Más días</button></div><button class="fbtn" id="filtBtn" aria-expanded="false">Filtrar</button></div>
+  <input class="search" id="q2" type="search" placeholder="Buscar equipo, jugador o liga" aria-label="Buscar equipo, jugador o liga" style="width:100%;margin:0 0 8px">
+  <div class="dbar"><div class="days" id="days" role="group" aria-label="Días"><button data-d="ahora">Ahora</button><button data-d="hoy" class="on">Hoy</button><button data-d="man">Mañana</button><button data-d="todo">Más días</button></div><button class="fbtn" id="filtBtn" aria-expanded="false">Filtrar</button></div>
   <div id="filtPanel" hidden><div class="chips" id="chips" role="group" aria-label="Filtros"></div>
   <div class="row2"><input class="search" id="q" type="search" placeholder="Buscar equipo o liga" aria-label="Buscar equipo o liga">
     <select class="sel" id="sort" aria-label="Ordenar"><option value="time">Por hora</option><option value="ev">Por valor</option><option value="fav">Por favorito</option></select></div></div>

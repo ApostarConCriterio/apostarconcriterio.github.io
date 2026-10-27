@@ -779,7 +779,7 @@ function doGet(e) {
       var P = lp > 1 ? ps.getRange(2, 1, lp - 1, HEADERS.predicciones.length).getValues() : [], E = {};
       if (le > 1) ev.getRange(2, 1, le - 1, 5).getValues().forEach(function (r) { E[r[0]] = { res: r[1], hg: r[2], ag: r[3] }; });
       var an = sheet_(SHEETS.anulaciones), la = an.getLastRow(), A = {}; if (la > 1) an.getRange(2, 1, la - 1, 3).getValues().forEach(function (r) { A[r[0]] = { motivo: r[1], fecha: r[2] instanceof Date ? r[2].toISOString() : r[2] }; });
-      var CL = cierres_();
+      var CL = {}; try { CL = cierres_(); } catch (e) { }
       out = JSON.stringify(P.map(function (r) { var o = {}; HEADERS.predicciones.forEach(function (h, i) { o[h] = r[i] instanceof Date ? r[i].toISOString() : r[i]; }); o.evaluacion = E[r[2]] || null; o.anulada = A[predId_(r)] || null; var c = CL[cierreKey_(r)]; if (c) o.cierre = c; return o; }));
     }
     else return HtmlService.createHtmlOutput('<p style="font-family:sans-serif">Apostar con criterio · servidor de datos. La web está en <a href="https://sites.google.com/view/apostar-con-criterio" target="_top">sites.google.com/view/apostar-con-criterio</a>.</p>');
